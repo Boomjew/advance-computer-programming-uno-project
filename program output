@@ -1,0 +1,209 @@
+## Game Startup
+
+```
+==========================================
+           UNO CARD GAME
+      Java OOP Design Patterns
+==========================================
+  Patterns: Factory  | Observer
+            Strategy | Singleton
+==========================================
+
+Enter your name: Mark
+
+Players in this game:
+  >> Mark  <- YOU (Human)
+  >> Alice  (Aggressive AI - targets you with draw cards)
+  >> Bob    (Defensive AI  - saves wild cards)
+
+HOW TO PLAY:
+  - When it is YOUR turn, type the INDEX number of the card to play
+  - Type -1 to draw a card from the deck instead
+  - After playing a Wild, you will be asked to choose a color
+
+Press ENTER to start...
+```
+
+---
+
+## Round 1 — Game Setup
+
+```
+========================================
+              ROUND 1
+========================================
+
+==========================================
+  GAME START
+==========================================
+
+Players:
+  - Mark
+  - Alice (Aggressive)
+  - Bob (Defensive)
+Starting card: [GREEN 7]
+==========================================
+```
+
+---
+
+## AI Turns (Automatic)
+
+```
+[LOG] --- It is now Alice (Aggressive)'s turn ---
+[AI Alice (Aggressive)] Hand size: 7
+[AI Alice (Aggressive)] Plays [GREEN SKIP]
+[LOG] Alice (Aggressive) played [GREEN SKIP]
+  >> SKIP! Next player loses their turn.
+
+[LOG] --- It is now Bob (Defensive)'s turn ---
+[AI Bob (Defensive)] Hand size: 7
+[AI Bob (Defensive)] Plays [GREEN 3]
+[LOG] Bob (Defensive) played [GREEN 3]
+```
+
+---
+
+## Your Turn (Human — Interactive)
+
+```
+[LOG] --- It is now Mark's turn ---
+
+Your hand:
+  0: [RED 5]
+  1: [BLUE 8]
+  2: [GREEN 9]
+  3: [WILD WILD]
+  4: [YELLOW SKIP]
+  5: [RED REVERSE]
+  6: [BLUE 2]
+Top card: [GREEN 3]
+
+Playable cards:
+  0: [GREEN 9]     <- same color (GREEN)
+  1: [WILD WILD]   <- always playable
+Choose card index (or -1 to draw): 0
+
+[LOG] Mark played [GREEN 9]
+```
+
+---
+
+## Playing a Wild Card
+
+```
+[LOG] --- It is now Mark's turn ---
+
+Your hand:
+  0: [RED 5]
+  1: [WILD WILD]
+  2: [BLUE 2]
+Top card: [YELLOW DRAW_TWO]
+
+Playable cards:
+  0: [WILD WILD]   <- always playable
+Choose card index (or -1 to draw): 0
+
+Choose color (RED/YELLOW/GREEN/BLUE): RED
+  >> Wild played! Color changed to: RED
+[LOG] Mark played [WILD WILD]
+```
+
+---
+
+## UNO Call
+
+```
+[LOG] Alice (Aggressive) played [RED SKIP]
+  >> SKIP! Next player loses their turn.
+  [UNO!] Alice (Aggressive) has 1 card left! Mark calls UNO!
+[LOG] Mark called UNO on Alice (Aggressive)!
+```
+
+---
+
+## Drawing a Card
+
+```
+[LOG] --- It is now Mark's turn ---
+
+Your hand:
+  0: [BLUE 2]
+  1: [YELLOW 4]
+Top card: [RED 8]
+
+No playable cards. Drawing 1 card...
+[LOG] Mark drew 1 card(s).
+```
+
+---
+
+## Force Draw (Action Card Effect)
+
+```
+[AI Alice (Aggressive)] Plays [RED DRAW_TWO]
+[LOG] Alice (Aggressive) played [RED DRAW_TWO]
+  >> DRAW TWO! Next player draws 2 cards and is skipped.
+  >> Mark was forced to draw 2 card(s).
+[LOG] Mark drew 2 card(s).
+```
+
+---
+
+## Game End
+
+```
+==========================================
+  GAME OVER — Winner: Alice (Aggressive)
+==========================================
+
+[LOG] *** GAME OVER — Winner: Alice (Aggressive) ***
+[SCORE] Alice (Aggressive) total wins: 1
+
+>> Winner of Round 1: Alice (Aggressive)
+Better luck next round!
+
+=== SCOREBOARD ===
+  Alice (Aggressive) : 1 win(s)
+==================
+
+Play another round? (yes / no): yes
+```
+
+---
+
+## Round 2 — Mark Wins
+
+```
+==========================================
+  GAME OVER — Winner: Mark
+==========================================
+
+[LOG] *** GAME OVER — Winner: Mark ***
+[SCORE] Mark total wins: 1
+
+>> Winner of Round 2: Mark
+Congratulations! You won this round!
+
+=== SCOREBOARD ===
+  Alice (Aggressive) : 1 win(s)
+  Mark               : 1 win(s)
+==================
+
+Play another round? (yes / no): no
+
+Thanks for playing UNO! Goodbye!
+```
+
+---
+
+## Design Patterns Visible in Output
+
+| Output line | Pattern demonstrated |
+|-------------|---------------------|
+| `[LOG] Mark played [GREEN 9]` | **Observer** — TurnLogger notified automatically |
+| `[SCORE] Alice total wins: 1` | **Observer** — ScoreTracker notified on game end |
+| `[AI Alice] Plays [GREEN SKIP]` | **Strategy** — AggressiveStrategy chose a skip card |
+| `[AI Bob] Plays [GREEN 3]` | **Strategy** — DefensiveStrategy chose a number card |
+| `Starting card: [GREEN 7]` | **Factory** — CardFactory built the shuffled deck |
+| One shared discard pile throughout | **Singleton** — All players use `Deck.getInstance()` |
