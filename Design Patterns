@@ -1,0 +1,264 @@
+# Design Patterns
+
+This project implements **4 Design Patterns** from the Gang of Four (GoF) catalogue.
+
+---
+
+## Pattern 1 — Factory Method 
+
+### Category
+Creational Pattern
+
+### Intent
+Define an interface for creating objects, but let the factory decide which class to instantiate. The client never calls `new` directly.
+
+### Problem it Solves
+UNO has 3 types of cards: `NumberCard`, `ActionCard`, and `WildCard`. Without a factory, every part of the code that creates cards must know which class to instantiate and how. If we add a new card type, we must find and update every place that creates cards.
+
+### Solution
+`CardFactory` is the single place responsible for all card creation.
+
+```
+CardFactory
+├── createNumberCard(color, value)  → NumberCard
+├── createActionCard(color, type)  → ActionCard
+├── createWildCard(type)           → WildCard
+└── createFullDeck()               → List<Card> (108 cards, shuffled)
+```
+
+### Code
+```java
+// CardFactory.java
+public class CardFactory {
+
+    public static Card createNumberCard(String color, int value) {
+        return new NumberCard(color, value);
+    }
+
+    public static Card createActionCard(String color, String type) {
+        return new ActionCard(color, type);
+    }
+
+    public static Card createWildCard(String type) {
+        return new WildCard(type);
+    }
+
+    public static List<Card> createFullDeck() {
+        List<Card> deck = new ArrayList<>();
+        for (String color : COLORS) {
+            deck.add(createNumberCard(color, 0));
+            for (int v = 1; v <= 9; v++) {
+                deck.add(createNumberCard(color, v));
+                deck.add(createNumberCard(color, v));
+            }
+            for (String action : new String[]{"SKIP","REVERSE","DRAW_TWO"}) {
+                deck.add(createActionCard(color, action));
+                deck.add(createActionCard(color, action));
+            }
+        }
+        for (int i = 0; i < 4; i++) {
+            deck.add(createWildCard("WILD"));
+            deck.add(createWildCard("WILD_DRAW_FOUR"));
+        }
+        Collections.shuffle(deck);
+        return deck;
+    }
+}
+```
+
+### Roles
+| Role | Class |
+|------|-------|
+| Creator (Factory) | `CardFactory` |
+| Product (Abstract) | `Card` |
+| Concrete Product | `NumberCard`, `ActionCard`, `WildCard` |
+
+### Benefit
+Adding a new card type (e.g., `SwapHandsCard`) only requires one new class + one new factory method. Nothing else changes.
+
+---
+
+## Pattern 2 — Observer 
+
+### Category
+Behavioural Pattern
+
+### Intent
+Define a one-to-many dependency so that when one object (Subject) changes state, all dependents (Observers) are notified automatically.
+
+### Problem it Solves
+The game engine needs to log moves, track scores, and potentially update a GUI — but these are separate concerns. Mixing them into `UnoGame` would make it bloated and hard to maintain.
+
+### Solution
+`GameEventManager` (Subject) fires events. Any class implementing `GameObserver` receives those events automatically.
+
+```
+GameEventManager (Subject)
+│
+├── notifyCardPlayed()  ──► TurnLogger.onCardPlayed()
+├── notifyCardDrawn()   ──► TurnLogger.onCardDrawn()
+├── notifyTurnChanged() ──► TurnLogger.onTurnChanged()
+├── notifyUnoCallout()  ──► TurnLogger.onUnoCallout()
+└── notifyGameEnd()     ──► TurnLogger.onGameEnd()
+                        ──► ScoreTracker.onGameEnd()
+```
+
+### Code
+```java
+// GameObserver.java (Observer interface)
+public interface GameObserver {
+    void onCardPlayed(Player player, Card card);
+    void onCardDrawn(Player player, int count);
+    void onTurnChanged(Player nextPlayer);
+    void onUnoCallout(Player caller, Player target);
+    void onGameEnd(Player winner);
+}
+
+// TurnLogger.java (Concrete Observer)
+public class TurnLogger implements GameObserver {
+    @Override
+    public void onCardPlayed(Player player, Card card) {
+        System.out.println("[LOG] " + player.getName() + " played " + card);
+    }
+    // ... other events
+}
+
+// UnoGame.java (registers observers and fires events)
+eventManager.addObserver(new TurnLogger());
+eventManager.addObserver(new ScoreTracker());
+
+// Later in game loop:
+eventManager.notifyCardPlayed(current, played); // both observers notified
+```
+
+### Roles
+| Role | Class |
+|------|-------|
+| Subject | `GameEventManager` |
+| Observer Interface | `GameObserver` |
+| Concrete Observer | `TurnLogger`, `ScoreTracker` |
+
+### Benefit
+Adding a new observer (e.g., a GUI update, a sound player) only requires one new class implementing `GameObserver` and one `addObserver()` call. The game engine never changes.
+
+---
+
+## Pattern 3 — Strategy 
+
+### Category
+Behavioural Pattern
+
+### Intent
+Define a family of algorithms, encapsulate each one, and make them interchangeable. The Strategy lets the algorithm vary independently from the clients that use it.
+
+### Problem it Solves
+Different AI players need different play behaviors (Aggressive, Defensive, Random). Without Strategy, this requires `if/else` chains inside `AIPlayer` — messy and hard to extend.
+
+### Solution
+`PlayStrategy` is an interface. Each difficulty is a separate class. `AIPlayer` holds a reference and delegates to it.
+
+```
+PlayStrategy (interface)
+├── AggressiveStrategy  → prefers SKIP, DRAW_TWO, WILD_DRAW_FOUR
+├── DefensiveStrategy   → prefers number cards, saves wilds for last
+└── RandomStrategy      → picks any playable card at random
+```
+
+### Code
+```java
+// PlayStrategy.java (Strategy interface)
+public interface PlayStrategy {
+    Card chooseCard(List<Card> playableCards, GameState state);
+}
+
+// AggressiveStrategy.java (Concrete Strategy)
+public class AggressiveStrategy implements PlayStrategy {
+    @Override
+    public Card chooseCard(List<Card> playable, GameState state) {
+        for (Card c : playable)
+            if (c.getType().contains("DRAW")) return c;  // prefer draw cards
+        for (Card c : playable)
+            if (c.getType().equals("SKIP")) return c;    // then skip
+        return playable.get(0);
+    }
+}
+
+// AIPlayer.java (Context)
+public class AIPlayer extends Player {
+    private PlayStrategy strategy;  // holds reference to strategy
+
+    public Card takeTurn(GameState state) {
+        Card chosen = strategy.chooseCard(getPlayableCards(...), state);
+        // ...
+    }
+
+    // Strategy can be swapped at runtime!
+    public void setStrategy(PlayStrategy strategy) {
+        this.strategy = strategy;
+    }
+}
+```
+
+### Roles
+| Role | Class |
+|------|-------|
+| Strategy Interface | `PlayStrategy` |
+| Concrete Strategy | `AggressiveStrategy`, `DefensiveStrategy`, `RandomStrategy` |
+| Context | `AIPlayer` |
+
+### Benefit
+Adding a new AI difficulty only requires one new class implementing `PlayStrategy`. No changes to `AIPlayer` or `UnoGame`.
+
+---
+
+## Pattern 4 — Singleton 
+
+### Category
+Creational Pattern
+
+### Intent
+Ensure a class has only one instance and provide a global point of access to it.
+
+### Problem it Solves
+The UNO deck must be shared by all players. If multiple `Deck` objects could be created, players might draw from different decks — breaking the game entirely.
+
+### Solution
+`Deck` has a **private constructor** and a **static `getInstance()` method** that always returns the same object.
+
+```java
+// Deck.java
+public class Deck {
+    private static Deck instance;  // the one and only instance
+
+    private Deck() {               // private → cannot call new Deck()
+        drawPile = new LinkedList<>(CardFactory.createFullDeck());
+        discardPile = new LinkedList<>();
+    }
+
+    public static Deck getInstance() {
+        if (instance == null) {
+            instance = new Deck();  // created only once
+        }
+        return instance;
+    }
+
+    public static void reset() {   // start a fresh game
+        instance = new Deck();
+    }
+}
+```
+
+### Proof it Works
+```java
+Deck d1 = Deck.getInstance();
+Deck d2 = Deck.getInstance();
+System.out.println(d1 == d2); // true — same object!
+```
+
+### Roles
+| Role | Class |
+|------|-------|
+| Singleton | `Deck` |
+
+### Benefit
+Every call to `Deck.getInstance()` anywhere in the project returns the exact same deck. No accidental duplication possible.
