@@ -1,4 +1,4 @@
-## 🎯 Use Case Scenario
+## Use Case Scenario
 
 ### Problem Statement
 Card games like UNO involve **multiple players with different behaviors**, a **shared deck**, and **dynamic rule effects** that change game flow. Building this cleanly in code requires a solid object-oriented structure — otherwise the code becomes tangled with `if/else` chains and duplicated logic.
