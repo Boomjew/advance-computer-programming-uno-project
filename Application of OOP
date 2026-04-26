@@ -1,0 +1,223 @@
+# OOP Principles
+
+This project applies all four core Object-Oriented Programming principles throughout its design.
+
+---
+
+## 1. Abstraction
+
+**Definition:** Hide implementation details and expose only what is necessary through abstract classes and interfaces.
+
+### Where We Use It
+
+#### `Card` — Abstract Class
+```java
+public abstract class Card {
+    protected String color;
+    protected String type;
+
+    // Concrete method — shared by all cards
+    public boolean canPlayOn(Card other) {
+        return this.color.equals("WILD")
+            || this.color.equals(other.color)
+            || this.type.equals(other.type);
+    }
+
+    // Abstract method — each card type MUST implement this
+    public abstract void applyEffect(GameState state);
+}
+```
+The game engine calls `card.applyEffect(state)` without knowing what the card actually does. The detail is hidden inside each subclass.
+
+#### `Player` — Abstract Class
+```java
+public abstract class Player {
+    // Abstract — subclass decides HOW to take a turn
+    public abstract Card takeTurn(GameState state);
+
+    // Abstract — subclass decides HOW to pick a color
+    public abstract String chooseColor();
+}
+```
+
+#### `PlayStrategy` — Interface
+```java
+public interface PlayStrategy {
+    Card chooseCard(List<Card> playableCards, GameState state);
+}
+```
+
+#### `GameObserver` — Interface
+```java
+public interface GameObserver {
+    void onCardPlayed(Player player, Card card);
+    void onTurnChanged(Player nextPlayer);
+    void onGameEnd(Player winner);
+    // ...
+}
+```
+
+---
+
+## 2. Inheritance
+
+**Definition:** A child class acquires properties and behaviors of its parent class, promoting code reuse.
+
+### Card Hierarchy
+```
+Card  (abstract)
+├── NumberCard    → inherits color, type, canPlayOn()
+├── ActionCard    → inherits color, type, canPlayOn()
+└── WildCard      → inherits color, type; overrides canPlayOn()
+```
+
+```java
+// NumberCard inherits everything from Card
+// Only adds value and its own applyEffect()
+public class NumberCard extends Card {
+    private int value;
+
+    public NumberCard(String color, int value) {
+        super(color, String.valueOf(value)); // calls Card constructor
+        this.value = value;
+    }
+
+    @Override
+    public void applyEffect(GameState state) {
+        state.advanceTurn(); // just advance — no special effect
+    }
+}
+```
+
+### Player Hierarchy
+```
+Player  (abstract)
+├── HumanPlayer   → inherits hand, drawCards(), getPlayableCards()
+└── AIPlayer      → inherits hand, drawCards(), getPlayableCards()
+```
+
+```java
+// Both HumanPlayer and AIPlayer get these for free from Player:
+// - hand management (addCard, removeCard, getHand)
+// - drawCards(n)
+// - getPlayableCards(topCard)
+// They only need to implement takeTurn() and chooseColor()
+```
+
+**Code Reuse:** Over 60% of Player's functionality is written once in the parent class and shared by both subclasses.
+
+---
+
+## 3. Polymorphism
+
+**Definition:** The same method call behaves differently depending on the actual object type at runtime.
+
+### Example 1 — `takeTurn()` on Players
+```java
+// UnoGame.java — ONE line handles both Human and AI
+Player current = state.getCurrentPlayer();
+Card played = current.takeTurn(state);
+//            ^^^^^^^^^^^^^^^^^^^
+// If current is HumanPlayer → shows hand, waits for keyboard input
+// If current is AIPlayer    → instantly picks using Strategy
+// UnoGame never checks "instanceof" — it just calls takeTurn()
+```
+
+### Example 2 — `applyEffect()` on Cards
+```java
+// UnoGame.java — ONE line handles all card types
+played.applyEffect(state);
+//     ^^^^^^^^^^^
+// NumberCard  → state.advanceTurn()
+// ActionCard (SKIP)     → state.skipNextPlayer()
+// ActionCard (REVERSE)  → state.reverseDirection()
+// ActionCard (DRAW_TWO) → state.drawCardsForNext(2) + skip
+// WildCard              → asks for color, optionally draws 4
+```
+
+### Example 3 — `chooseCard()` on Strategies
+```java
+// AIPlayer.java — same call, 3 different behaviors
+Card chosen = strategy.chooseCard(playable, state);
+//            ^^^^^^^^^^^^^^^^^^^
+// AggressiveStrategy → picks draw/skip cards first
+// DefensiveStrategy  → picks number cards first
+// RandomStrategy     → picks randomly
+```
+
+### Why This Matters
+Without polymorphism, the code would look like this:
+```java
+// BAD — without polymorphism (do NOT do this)
+if (current instanceof HumanPlayer) {
+    // 20 lines of human input code
+} else if (current instanceof AIPlayer) {
+    AIPlayer ai = (AIPlayer) current;
+    if (ai.getStrategy() instanceof AggressiveStrategy) {
+        // ...
+    } else if (ai.getStrategy() instanceof DefensiveStrategy) {
+        // ...
+    }
+}
+// Every new player type breaks this block!
+```
+
+With polymorphism, it's just:
+```java
+// GOOD — with polymorphism
+Card played = current.takeTurn(state); // one line, always correct
+```
+
+---
+
+## 4. Encapsulation
+
+**Definition:** Bundle data (fields) and methods together, and restrict direct access to the internal state using access modifiers.
+
+### Example 1 — Card fields are protected
+```java
+public abstract class Card {
+    protected String color;  // subclasses can read it
+    protected String type;   // but outside code cannot set it directly
+
+    public String getColor() { return color; }       // controlled read
+    public void setColor(String color) { this.color = color; } // controlled write
+}
+```
+
+### Example 2 — Deck constructor is private (Singleton)
+```java
+public class Deck {
+    private static Deck instance;   // hidden
+    private Queue<Card> drawPile;   // hidden
+    private List<Card> discardPile; // hidden
+
+    private Deck() { ... }  // PRIVATE — cannot call new Deck() from outside
+
+    public static Deck getInstance() { ... }  // only way to access the deck
+    public Card draw() { ... }                // controlled operation
+    public void discard(Card card) { ... }    // controlled operation
+}
+```
+
+### Example 3 — GameState controls all mutations
+```java
+public class GameState {
+    private int currentIndex;  // hidden — outside code cannot jump to any turn
+    private int direction;     // hidden — cannot flip without going through method
+
+    // Controlled mutations only — no public fields
+    public void advanceTurn()     { currentIndex = nextIndex(1); }
+    public void skipNextPlayer()  { currentIndex = nextIndex(2); }
+    public void reverseDirection(){ direction = -direction; }
+}
+```
+
+### Summary Table
+
+| Class | Private Fields | Controlled Access |
+|-------|---------------|-------------------|
+| `Card` | `color`, `type` | `getColor()`, `setColor()` |
+| `Deck` | `drawPile`, `discardPile`, `instance` | `draw()`, `discard()`, `getInstance()` |
+| `Player` | `name`, `hand` | `getHand()`, `drawCards()`, `addCard()` |
+| `GameState` | `currentIndex`, `direction`, `gameOver` | `advanceTurn()`, `reverseDirection()` |
